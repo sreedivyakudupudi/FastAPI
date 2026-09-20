@@ -1,11 +1,20 @@
 
 import asyncio
+import logging 
+import time
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, ConfigDict, field_validator, Field, model_validator
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 
 app = FastAPI()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 users = [
     {"id": 1, "name": "Divya", "email": "divya@gmail.com", "phno": "9014763396", "age": 25, "password": "password123456789", "confirm_password": "password123456789"},
@@ -19,7 +28,7 @@ def write_log(message: str):
 async def user_stream():
     for user in users:
         yield f'Id: {user["id"]} name: {user["name"]} email: {user["email"]}\n'
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
 
 class CreateUser(BaseModel):
     id: int
@@ -132,4 +141,54 @@ async def stream_users():
         media_type= "text/plain"
     )
 
-    
+#Global Exception
+@app.exception_handler(Exception)
+async def global_exception_handler(
+    request : Request,
+    exc : Exception):
+    logger.expception(
+        f'Unhandled exception: {request.method} {request.url}'
+    )
+
+    return JSONResponse(
+        status_code =500,
+        content = {
+            "error" :"Internal Server Error",
+            "detail" :"Something went Wrong"
+        }
+    )
+
+#Logging Middleware
+app.middleware("http")
+async def logging_middleware(request: Request,
+                             call_back):
+    start_time = time.time()
+
+    logger.info(
+        f'Request {request.method} {request.url.path}'
+    )
+
+    try: 
+        response = await call_back(request)
+
+        end_time = time.time()
+        process_time = end_time-start_time
+
+        logger.info(
+            f'Response : {response.method}\n'
+            f'Response path: {response.url.path}\n'
+            f'process_time: {process_time}\n'
+            f'status_code: {response.status_code}\n'
+        )
+
+        return response
+
+    except Exception:
+        process_time = time.time() - start_time
+
+        logger.exception(
+            f"Request failed: {request.method}"
+            f"Process time: {process_time:.4f}s"
+            f"Request path: {request.url.path}"
+        )
+
