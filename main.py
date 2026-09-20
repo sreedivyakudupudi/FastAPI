@@ -7,9 +7,19 @@ from fastapi.responses import StreamingResponse
 
 app = FastAPI()
 
+users = [
+    {"id": 1, "name": "Divya", "email": "divya@gmail.com", "phno": "9014763396", "age": 25, "password": "password123456789", "confirm_password": "password123456789"},
+    {"id": 2, "name": "Karthika", "email": "karthika@gmail.com", "phno": "9014763397", "age": 30, "password": "password123456789", "confirm_password": "password123456789"}
+]
+
 def write_log(message: str):
     with open("user_log.txt", 'a') as file:
         file.write(message +"\n")
+
+async def user_stream():
+    for user in users:
+        yield f'Id: {user["id"]} name: {user["name"]} email: {user["email"]}\n'
+        await asyncio.sleep(2)
 
 class CreateUser(BaseModel):
     id: int
@@ -43,11 +53,6 @@ class PublicUser(BaseModel):
     id: int 
     name :str 
     email_id : str = Field(alias="email")
-
-users = [
-    {"id": 1, "name": "Divya", "email": "divya@gmail.com", "phno": "9014763396", "age": 25, "password": "password123456789", "confirm_password": "password123456789"},
-    {"id": 2, "name": "Karthika", "email": "karthika@gmail.com", "phno": "9014763397", "age": 30, "password": "password123456789", "confirm_password": "password123456789"}
-]
 
 
 @app.get("/")
@@ -120,5 +125,11 @@ def delete_user(id:int):
     
     raise HTTPException(status_code = 404,
                         detail = "User not Found")
+@app.get("/users/stream")
+async def stream_users():
+    return StreamingResponse(
+        user_stream(),
+        media_type= "text/plain"
+    )
 
     
